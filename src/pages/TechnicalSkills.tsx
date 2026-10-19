@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Code,
   Trophy,
@@ -13,53 +13,41 @@ import {
   Target
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-
-const INITIAL_SKILLS = [
-  { name: 'Python Fundamentals', proficiency: 4, status: 'Completed', resources: ['Official Docs', 'MIT 6.0001'], hours: 40 },
-  { name: 'Python Functions & Data Structures', proficiency: 3, status: 'In Progress', resources: ['LeetCode', 'RealPython'], hours: 25 },
-  { name: 'Object-Oriented Programming', proficiency: 2, status: 'Not Started', resources: ['Coursera'], hours: 0 },
-  { name: 'File Handling', proficiency: 3, status: 'In Progress', resources: ['MDN'], hours: 10 },
-  { name: 'Error Handling', proficiency: 3, status: 'Completed', resources: ['Python Docs'], hours: 5 },
-  { name: 'Git and GitHub', proficiency: 4, status: 'Completed', resources: ['GitHub Guides'], hours: 15 },
-  { name: 'SQL Fundamentals', proficiency: 2, status: 'In Progress', resources: ['Mode Analytics'], hours: 12 },
-  { name: 'SQL Joins and Queries', proficiency: 1, status: 'Not Started', resources: ['SQLZoo'], hours: 0 },
-  { name: 'Pandas', proficiency: 2, status: 'In Progress', resources: ['Kaggle'], hours: 20 },
-  { name: 'NumPy', proficiency: 2, status: 'In Progress', resources: ['NumPy Docs'], hours: 15 },
-  { name: 'Data Cleaning', proficiency: 1, status: 'Not Started', resources: ['Towards Data Science'], hours: 0 },
-  { name: 'Data Pipelines', proficiency: 1, status: 'Not Started', resources: ['Airflow Docs'], hours: 0 },
-  { name: 'APIs', proficiency: 3, status: 'Completed', resources: ['Postman Learning'], hours: 10 },
-  { name: 'Basic Data Engineering', proficiency: 1, status: 'Not Started', resources: ['Udacity'], hours: 0 },
-  { name: 'Introductory Machine Learning', proficiency: 1, status: 'Not Started', resources: ['Andrew Ng'], hours: 0 },
-  { name: 'Applied AI Engineering', proficiency: 1, status: 'Not Started', resources: ['DeepLearning.ai'], hours: 0 },
-];
-
-const INITIAL_PROJECTS = [
-  {
-    name: 'Personal Expense Tracker',
-    description: 'A Python application to track daily spending and generate monthly reports.',
-    skills: ['Python Fundamentals', 'File Handling', 'Error Handling'],
-    status: 'In Progress',
-    progress: 75,
-    github: 'https://github.com/soham/expense-tracker',
-    lessons: 'Learned how to manage state and handle corrupted CSV files.',
-  },
-  {
-    name: 'Student Grade Management Project',
-    description: 'A system for managing student records and computing weighted averages.',
-    skills: ['Python Fundamentals', 'OOP'],
-    status: 'In Progress',
-    progress: 40,
-    github: 'https://github.com/soham/grade-manager',
-    lessons: 'Implemented class inheritance for different student types.',
-  },
-];
+import { supabase } from '../lib/supabaseClient';
 
 export default function TechnicalSkills() {
   const [activeTab, setActiveTab] = useState<'skills' | 'projects'>('skills');
+  const [skills, setSkills] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const { data: sData } = await supabase.from('technical_skills').select('*');
+        const { data: pData } = await supabase.from('coding_projects').select('*');
+        if (sData) setSkills(sData);
+        if (pData) setProjects(pData);
+      } catch (error) {
+        console.error('Error fetching skills data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
@@ -76,7 +64,6 @@ export default function TechnicalSkills() {
         </div >
       </div >
 
-      {/* Tab Switcher */}
       <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
         <button
           onClick={() => setActiveTab('skills')}
@@ -100,9 +87,8 @@ export default function TechnicalSkills() {
 
       {activeTab === 'skills' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Skills Grid */}
           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {INITIAL_SKILLS.map((skill, idx) => (
+            {skills.length > 0 ? skills.map((skill, idx) => (
               <div key={idx} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:border-indigo-500/50 transition-all group cursor-pointer">
                 <div className="flex justify-between items-start mb-4">
                   <div className="space-y-1">
@@ -113,7 +99,7 @@ export default function TechnicalSkills() {
                         skill.status === 'Completed' ? "bg-emerald-500/10 text-emerald-400" :
                         skill.status === 'In Progress' ? "bg-indigo-500/10 text-indigo-400" : "bg-slate-700 text-slate-400"
                       )}>{skill.status}</span>
-                      <span className="text-[10px] text-slate-500">{skill.hours} hours invested</span>
+                      <span className="text-[10px] text-slate-500">{skill.practice_hours || 0} hours invested</span>
                     </div >
                   </div >
                   <div className="flex items-center gap-1">
@@ -123,7 +109,7 @@ export default function TechnicalSkills() {
                         size={12}
                         className={cn(
                           "transition-colors",
-                          i < skill.proficiency ? "text-yellow-400 fill-yellow-400" : "text-slate-700"
+                          i < (skill.proficiency || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-700"
                         )}
                       />
                     ))}
@@ -132,17 +118,20 @@ export default function TechnicalSkills() {
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-800">
                   <div className="flex items-center gap-2 text-slate-500">
                     <BookOpen size={12} />
-                    <span className="text-[10px]">{skill.resources[0]}...</span>
+                    <span className="text-[10px]">{skill.learning_resources ? JSON.stringify(skill.learning_resources) : 'No resources linked'}</span>
                   </div >
                   <button className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-600 hover:text-indigo-400">
                     <ChevronRight size={14} />
                   </button>
                 </div >
               </div >
-            ))}
+            )) : (
+              <div className="col-span-2 p-12 text-center text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl">
+                No skills tracked yet. Start adding your technical proficiency!
+              </div >
+            )}
           </div >
 
-          {/* Growth Insights */}
           <div className="space-y-6">
             <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -178,7 +167,7 @@ export default function TechnicalSkills() {
         </div >
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {INITIAL_PROJECTS.map((project, idx) => (
+          {projects.length > 0 ? projects.map((project, idx) => (
             <div key={idx} className="p-6 bg-slate-900 border border-slate-800 rounded-2xl hover:border-indigo-500/50 transition-all group shadow-xl">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
@@ -194,7 +183,7 @@ export default function TechnicalSkills() {
               </div >
               <p className="text-sm text-slate-400 mb-6 leading-relaxed">{project.description}</p>
               <div className="flex flex-wrap gap-2 mb-6">
-                {project.skills.map(skill => (
+                {project.skills?.map((skill: string) => (
                   <span key={skill} className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 rounded-full border border-slate-700">
                     {skill}
                   </span>
@@ -203,10 +192,10 @@ export default function TechnicalSkills() {
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-slate-500">Implementation Progress</span>
-                  <span className="text-indigo-400 font-bold">{project.progress}%</span>
+                  <span className="text-indigo-400 font-bold">{project.progress_percent}%</span>
                 </div >
                 <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500" style={{ width: `${project.progress}%` }} />
+                  <div className="h-full bg-indigo-500" style={{ width: `${project.progress_percent}%` }} />
                 </div >
               </div >
               <div className="p-4 bg-slate-800/40 border border-slate-800 rounded-xl mb-6">
@@ -214,7 +203,7 @@ export default function TechnicalSkills() {
                   <CheckCircle2 size={12} />
                   Key Lesson
                 </h4>
-                <p className="text-xs text-slate-300 italic leading-relaxed">"{project.lessons}"</p>
+                <p className="text-xs text-slate-300 italic leading-relaxed">"{project.lessons_learned}"</p>
               </div >
               <div className="flex items-center justify-between">
                 <button className="flex items-center gap-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
@@ -226,7 +215,11 @@ export default function TechnicalSkills() {
                 </button>
               </div >
             </div >
-          ))}
+          )) : (
+            <div className="col-span-2 p-12 text-center text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl">
+              No projects tracked yet. Time to start building!
+            </div >
+          )}
           <button className="p-6 border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3 text-slate-600 hover:text-indigo-400 hover:border-indigo-500/50 transition-all group">
             <div className="p-3 bg-slate-800 rounded-full group-hover:bg-indigo-500/10 transition-colors">
               <Plus size={24} />

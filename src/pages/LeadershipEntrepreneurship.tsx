@@ -109,7 +109,7 @@ export default function LeadershipEntrepreneurship() {
           <div className="p-6 bg-indigo-600 rounded-2xl text-white shadow-xl">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-2 opacity-80">Core Philosophy</h3>
             <p className="text-sm leading-relaxed italic">
-              "Impact > Title. Focus on solving real problems and documenting the results. The admission committee values evidence of initiative over elected positions."
+              {"Impact > Title. Focus on solving real problems and documenting the results. The admission committee values evidence of initiative over elected positions."}
             </p>
           </div >
         </div >

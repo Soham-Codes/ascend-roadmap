@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Microscope,
   UserSearch,
@@ -12,8 +12,38 @@ import {
   Target
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabaseClient';
 
 export default function HonorsResearch() {
+  const [research, setResearch] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchResearch() {
+      try {
+        setLoading(true);
+        const { data } = await supabase
+          .from('research_entries')
+          .select('*')
+          .single();
+        if (data) setResearch(data);
+      } catch (error) {
+        console.error('Error fetching research data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchResearch();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -32,7 +62,6 @@ export default function HonorsResearch() {
         </div >
       </div >
 
-      {/* Research Core */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
@@ -43,7 +72,9 @@ export default function HonorsResearch() {
             <div className="space-y-6">
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Working Topic</label>
-                <p className="text-xl font-bold text-indigo-300 mt-1">"AI-Assisted Decision-Making for Supply Chain and Operational Systems"</p>
+                <p className="text-xl font-bold text-indigo-300 mt-1">
+                  {research?.topic || "AI-Assisted Decision-Making for Supply Chain and Operational Systems"}
+                </p>
                 <p className="text-sm text-slate-400 mt-2 leading-relaxed">
                   Exploring the intersection of LLMs, Reinforcement Learning, and Operations Research to optimize complex supply chain networks.
                 </p>
@@ -61,7 +92,6 @@ export default function HonorsResearch() {
             </div >
           </div >
 
-          {/* Research Roadmap */}
           <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
             <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
               <Clock size={20} className="text-indigo-400" />
@@ -95,7 +125,6 @@ export default function HonorsResearch() {
           </div >
         </div >
 
-        {/* Outreach & Faculty Tracker */}
         <div className="space-y-6">
           <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">

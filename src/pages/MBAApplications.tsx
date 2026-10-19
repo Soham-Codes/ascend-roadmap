@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   GraduationCap,
   Search,
@@ -13,37 +13,74 @@ import {
   UserCheck
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabaseClient';
 
 const STATUSES = [
   'Researching', 'Planning to Apply', 'In Progress', 'Submitted',
   'Interview Invited', 'Interview Complete', 'Accepted', 'Waitlisted', 'Rejected', 'Withdrawn'
 ];
 
-const INITIAL_SCHOOLS = [
-  { id: '1', university: 'Harvard University', business_school: 'Harvard Business School', program_name: '2+2 Program', priority: 'Essential', status: 'Researching', fit: 5 },
-  { id: '2', university: 'Stanford University', business_school: 'Stanford GSB', program_name: 'Deferred Enrollment', priority: 'Essential', status: 'Researching', fit: 5 },
-  { id: '3', university: 'MIT', business_school: 'MIT Sloan', program_name: 'MBA Early Admission', priority: 'Essential', status: 'Researching', fit: 4 },
-  { id: '4', university: 'University of Pennsylvania', business_school: 'Wharton', program_name: 'Moelis Advance Access', priority: 'Essential', status: 'Researching', fit: 4 },
-  { id: '5', university: 'University of Chicago', business_school: 'Booth', program_name: 'Scholars Program', priority: 'Important', status: 'Researching', fit: 3 },
-  { id: '6', university: 'Columbia University', business_school: 'Columbia Business School', program_name: 'Deferred Enrollment', priority: 'Important', status: 'Researching', fit: 3 },
-  { id: '7', university: 'UC Berkeley', business_school: 'Haas', program_name: 'Accelerated Access', priority: 'Important', status: 'Researching', fit: 4 },
-  { id: '8', university: 'Carnegie Mellon University', business_school: 'Tepper', program_name: 'Deferred Enrollment', priority: 'Optional', status: 'Researching', fit: 3 },
-  { id: '9', university: 'University of Virginia', business_school: 'Darden', program_name: 'Future Year Scholars', priority: 'Optional', status: 'Researching', fit: 3 },
-  { id: '10', university: 'Cornell University', business_school: 'Johnson', program_name: 'MBA Future Leaders', priority: 'Optional', status: 'Researching', fit: 3 },
-];
-
 export default function MBAApplications() {
   const [view, setView] = useState<'board' | 'table'>('board');
   const [searchQuery, setSearchQuery] = useState('');
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredSchools = INITIAL_SCHOOLS.filter(s =>
+  useEffect(() => {
+    async function fetchApplications() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('mba_applications')
+          .select(`
+            *,
+            mba_programs (
+              university,
+              business_school,
+              program_name,
+              website
+            )
+          `);
+
+        if (error) throw error;
+
+        // Flatten the joined data for easier use in the UI
+        const flattened = (data || []).map(app => ({
+          id: app.id,
+          university: app.mba_programs?.university || 'TBA',
+          business_school: app.mba_programs?.business_school || 'TBA',
+          program_name: app.mba_programs?.program_name || 'TBA',
+          priority: app.priority || 'Optional',
+          status: app.status || 'Researching',
+          fit: app.interest_level || 0,
+        }));
+
+        setApplications(flattened);
+      } catch (error) {
+        console.error('Error fetching MBA applications:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchApplications();
+  }, []);
+
+  const filteredSchools = applications.filter(s =>
     s.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.business_school.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  if (loading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
@@ -64,7 +101,6 @@ export default function MBAApplications() {
         </div >
       </div >
 
-      {/* Controls */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
@@ -172,23 +208,23 @@ export default function MBAApplications() {
                     <span className="text-xs px-2 py-1 bg-slate-800 rounded-lg text-slate-300 border border-slate-700">
                       {school.status}
                     </span>
-                  </td>
+                  </td >
                   <td className="px-6 py-4">
                     <span className={cn(
                       "text-xs font-bold uppercase",
                       school.priority === 'Essential' ? "text-red-400" :
                       school.priority === 'Important' ? "text-amber-400" : "text-slate-500"
                     )}>{school.priority}</span>
-                  </td>
+                  </td >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1">
                       <Trophy size={12} className="text-yellow-500" />
                       <span className="text-sm">{school.fit}/5</span>
                     </div >
-                  </td>
+                  </td >
                   <td className="px-6 py-4">
                     <span className="text-xs text-slate-500">TBA — Verify Official Deadline</span>
-                  </td>
+                  </td >
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
                       <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-500 hover:text-indigo-400 transition-all" title="Edit Application">
@@ -198,7 +234,7 @@ export default function MBAApplications() {
                         <UserCheck size={16} />
                       </button>
                     </div >
-                  </td>
+                  </td >
                 </tr>
               ))}
             </tbody>

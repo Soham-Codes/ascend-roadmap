@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Briefcase,
   Search,
@@ -16,18 +16,44 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-
-const APP_STATUSES = ['Interested', 'Applied', 'Assessment', 'Interviewing', 'Offer', 'Rejected', 'Withdrawn'];
-
-const INITIAL_APPS = [
-  { id: '1', company: 'Top Tier Tech Co', role: 'AI Engineer', location: 'Remote', status: 'Interviewing', date: '2026-11-01', priority: 'Essential' },
-  { id: '2', company: 'Global Logistics Inc', role: 'Supply Chain Analyst', location: 'Columbus, OH', status: 'Applied', date: '2026-11-05', priority: 'Important' },
-  { id: '3', company: 'Innovative AI Startup', role: 'Product Manager', location: 'SF, CA', status: 'Interested', date: 'TBA', priority: 'Important' },
-  { id: '4', company: 'Fortune 500 Retail', role: 'Data Engineer', location: 'Cincinnati, OH', status: 'Applied', date: '2026-10-20', priority: 'Optional' },
-];
+import { supabase } from '../lib/supabaseClient';
 
 export default function CareerTracker() {
   const [filter, setFilter] = useState('All');
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchApplications() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase.from('career_applications').select('*');
+        if (error) throw error;
+        setApplications(data || []);
+      } catch (error) {
+        console,error('Error fetching career applications:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchApplications();
+  }, []);
+
+  const filteredApps = applications.filter(app => {
+    if (filter === 'All') return true;
+    if (filter === 'Active') return ['Applied', 'Assessment', 'Interviewing'].includes(app.status);
+    if (filter === 'Offers') return app.status === 'Offer';
+    if (filter === 'Rejected') return app.status === 'Rejected';
+    return true;
+  });
+
+  if (loading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -47,13 +73,12 @@ export default function CareerTracker() {
         </div >
       </div >
 
-      {/* Pipeline Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Apps', value: '24', icon: FileText, color: 'text-slate-400' },
-          { label: 'Interviews', value: '4', icon: Clock, color: 'text-indigo-400' },
-          { label: 'Offers', value: '0', icon: Trophy, color: 'text-yellow-400' },
-          { label: 'Response Rate', value: '12%', icon: TrendingUp, color: 'text-emerald-400' },
+          { label: 'Total Apps', value: applications.length, icon: FileText, color: 'text-slate-400' },
+          { label: 'Interviews', value: applications.filter(a => a.status === 'Interviewing').length, icon: Clock, color: 'text-indigo-400' },
+          { label: 'Offers', value: applications.filter(a => a.status === 'Offer').length, icon: Trophy, color: 'text-yellow-400' },
+          { label: 'Response Rate', value: 'TBA', icon: TrendingUp, color: 'text-emerald-400' },
         ].map((stat, i) => (
           <div key={i} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl">
             <div className="flex items-center gap-2 mb-1">
@@ -65,7 +90,6 @@ export default function CareerTracker() {
         ))}
       </div >
 
-      {/* Application Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Application Pipeline</h2>
@@ -93,7 +117,7 @@ export default function CareerTracker() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {INITIAL_APPS.map(app => (
+            {filteredApps.length > 0 ? filteredApps.map(app => (
               <tr key={app.id} className="hover:bg-slate-800/30 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="flex flex-col">
@@ -110,19 +134,24 @@ export default function CareerTracker() {
                     app.status === 'Rejected' ? "bg-red-500/10 text-red-400" : "bg-slate-800 text-slate-400"
                   )}>{app.status}</span>
                 </td >
-                <td className="px-6 py-4 text-sm text-slate-500">{app.date}</td>
+                <td className="px-6 py-4 text-sm text-slate-500">{app.application_date}</td>
                 <td className="px-6 py-4 text-right">
                   <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-500 hover:text-indigo-400 transition-all">
                     <ChevronRight size={16} />
                   </button>
                 </td >
               </tr >
-            ))}
+            )) : (
+              <tr>
+                <td colSpan={5} className="p-12 text-center text-slate-500">
+                  No applications found. Time to start recruiting!
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div >
 
-      {/* Accomplishments Journal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
           <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
@@ -130,28 +159,9 @@ export default function CareerTracker() {
             Accomplishments Journal
           </h2>
           <div className="space-y-4">
-            {[
-              { title: 'Kroger PM Internship Project', result: 'Reduced latency by 15% in internal tool', star: 'Implemented a new caching layer for data retrieval', rec: 'Manager X' },
-              { title: 'AI Lab Collaboration', result: 'Co-authored research on LLM efficiency', star: 'Led the data cleaning phase for 10k samples', rec: 'Prof Y' },
-            ].map((entry, idx) => (
-              <div key={idx} className="p-4 bg-slate-800/40 border border-slate-800 rounded-xl hover:border-indigo-500/50 transition-all group">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-sm group-hover:text-indigo-300 transition-colors">{entry.title}</h3>
-                  <span className="text-[10px] px-2 py-0.5 bg-indigo-500/10 text-indigo-400 rounded-full font-bold">STAR Example</span>
-                </div >
-                <p className="text-xs text-slate-400 mb-3 leading-relaxed">{entry.result}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-slate-900/50 rounded-lg border border-slate-800">
-                  <div>
-                    <span className="text-[10px] text-slate-600 uppercase font-bold block mb-1">Action Taken</span>
-                    <p className="text-xs text-slate-300">{entry.star}</p>
-                  </div >
-                  <div>
-                    <span className="text-[10px] text-slate-600 uppercase font-bold block mb-1">Potential Recommender</span>
-                    <p className="text-xs text-slate-300">{entry.rec}</p>
-                  </div >
-                </div >
-              </div >
-            ))}
+            <div className="p-4 bg-slate-800/40 border border-slate-800 rounded-xl">
+              <p className="text-xs text-slate-500 italic">Accomplishments journal will be live once the dedicated table is linked.</p>
+            </div >
             <button className="w-full p-4 border-2 border-dashed border-slate-800 rounded-xl text-slate-600 hover:text-indigo-400 hover:border-indigo-500/50 transition-all flex items-center justify-center gap-2 text-sm font-medium">
               <Plus size={16} />
               Log New Achievement

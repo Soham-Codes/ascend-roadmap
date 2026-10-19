@@ -3,22 +3,19 @@ import {
   LayoutDashboard,
   Map,
   Target,
-  Calendar,
   Code,
   GraduationCap,
   Microscope,
   Briefcase,
   BookOpen,
   TrendingUp,
-  Settings,
   Menu,
   X,
   ChevronLeft,
   ChevronRight,
   Moon,
   Sun,
-  User,
-  ShieldAlert
+  User
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import CommandCenter from './pages/CommandCenter';
@@ -29,16 +26,13 @@ import MBAApplications from './pages/MBAApplications';
 import HonorsResearch from './pages/HonorsResearch';
 import MITxTracker from './pages/MITxTracker';
 import CareerTracker from './pages/CareerTracker';
-import WeeklyPlanner from './pages/WeeklyPlanner';
 import Analytics from './pages/Analytics';
 import LeadershipEntrepreneurship from './pages/LeadershipEntrepreneurship';
-import GraduateBackupPlan from './pages/GraduateBackupPlan';
 
 const navItems = [
   { id: 'command-center', label: 'Command Center', icon: LayoutDashboard, component: CommandCenter },
   { id: 'master-roadmap', label: 'Master Roadmap', icon: Map, component: MasterRoadmap },
   { id: 'goals', label: 'Goals & Milestones', icon: Target, component: GoalSystem },
-  { id: 'planner', label: 'Weekly Planner', icon: Calendar, component: WeeklyPlanner },
   { id: 'skills', label: 'Technical Skills', icon: Code, component: TechnicalSkills },
   { id: 'mba', label: 'MBA Applications', icon: GraduationCap, component: MBAApplications },
   { id: 'research', label: 'Honors Research', icon: Microscope, component: HonorsResearch },
@@ -46,8 +40,6 @@ const navItems = [
   { id: 'mitx', label: 'MITx MicroMasters', icon: BookOpen, component: MITxTracker },
   { id: 'leadership', label: 'Leadership & Entre.', icon: TrendingUp, component: LeadershipEntrepreneurship },
   { id: 'analytics', label: 'Analytics & Reflections', icon: TrendingUp, component: Analytics },
-  { id: 'backup', label: 'Backup Plan', icon: ShieldAlert, component: GraduateBackupPlan },
-  { id: 'settings', label: 'Settings', icon: Settings, component: () => <div className="p-8 text-center text-slate-500">Settings coming soon...</div> },
 ];
 
 export default function App() {
