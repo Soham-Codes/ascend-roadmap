@@ -1,43 +1,69 @@
 import React, { useState, useEffect } from 'react';
 import {
   BookOpen,
-  Calendar,
   CheckCircle2,
   Clock,
-  ChevronRight,
-  Plus,
-  Award,
-  FileText,
-  Trophy
+  ChevronDown,
+  ChevronUp,
+  GraduationCap
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabaseClient';
 
+const COURSES = [
+  { id: 'sc-analytics', name: 'Supply Chain Analytics', type: 'Course' },
+  { id: 'sc-fundamentals', name: 'Supply Chain Fundamentals', type: 'Course' },
+  { id: 'sc-design', name: 'Supply Chain Design', type: 'Course' },
+  { id: 'sc-dynamics', name: 'Supply Chain Dynamics', type: 'Course' },
+  { id: 'sc-tech', name: 'Supply Chain Technology and Systems', type: 'Course' },
+  { id: 'sc-exam', name: 'Supply Chain Comprehensive Exam', type: 'Exam' },
+];
+
 export default function MITxTracker() {
-  const [courses, setCourses] = useState<any[]>([]);
+  const [progress, setProgress] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchCourses() {
+    async function fetchProgress() {
       try {
         setLoading(true);
-        const { data, error } = await supabase.from('mitx_courses').select('*');
+        const { data, error } = await supabase.from('micromasters_progress').select('*');
         if (error) throw error;
-        setCourses(data || []);
+        if (data) {
+          const progMap: Record<string, string> = {};
+          data.forEach(row => {
+            progMap[row.course_id] = row.status;
+          });
+          setProgress(progMap);
+        }
       } catch (error) {
-        console.error('Error fetching MITx courses:', error);
+        console.error('Error fetching MicroMasters progress:', error);
       } finally {
         setLoading(false);
       }
     }
-    fetchCourses();
+    fetchProgress();
   }, []);
 
-  const overallProgress = courses.length > 0
-    ? Math.round(courses.reduce((acc, c) => acc + (c.progress_percent || 0), 0) / courses.length)
-    : 0;
+  const updateStatus = async (courseId: string, status: string) => {
+    try {
+      const { error } = await supabase.from('micromasters_progress').upsert({
+        course_id: courseId,
+        status: status
+      });
+      if (error) throw error;
+      setProgress(prev => ({ ...prev, [courseId]: status }));
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update progress');
+    }
+  };
 
-  const nextCourse = courses[0]; // Simplified: assume first in list is next
+  const calculateOverallProgress = () => {
+    const completed = Object.values(progress).filter(s => s === 'Completed').length;
+    return Math.round((completed / COURSES.length) * 100);
+  };
 
   if (loading) {
     return (
@@ -48,105 +74,77 @@ export default function MITxTracker() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <BookOpen className="text-indigo-400" />
+            <BookOpen className="text-indigo-500" />
             MITx MicroMasters
           </h1>
-          <p className="text-slate-400">Supply Chain Management Professional Certification</p>
+          <p className="text-slate-500">Supply Chain Management Learning Path</p>
         </div >
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors">
-            <Plus size={16} />
-            Add Course
-          </button>
+        <div className="flex items-center gap-4 bg-white p-3 border border-slate-200 rounded-2xl shadow-sm">
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Overall Completion</p>
+            <p className="text-xl font-black text-indigo-600">{calculateOverallProgress()}%</p>
+          </div >
+          <div className="w-32 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${calculateOverallProgress()}%` }} />
+          </div >
         </div >
       </div >
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">Overall Progress</p>
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-black text-indigo-400">{overallProgress}%</span>
-            <span className="text-xs text-slate-600 mb-1">of {courses.length} courses</span>
-          </div >
-          <div className="w-full h-2 bg-slate-800 rounded-full mt-4 overflow-hidden">
-            <div className="h-full bg-indigo-500" style={{ width: `${overallProgress}%` }} />
-          </div >
-        </div >
-        <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">Next Milestone</p>
-          <div className="flex items-center gap-3">
-            <Calendar className="text-indigo-400" size={20} />
-            <span className="text-lg font-bold">{nextCourse?.start_date || 'TBA'}</span>
-          </div >
-          <p className="text-xs text-slate-600 mt-1">{nextCourse?.course_name || 'Course start date'}</p>
-        </div >
-        <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">Certs Earned</p>
-          <div className="flex items-center gap-3">
-            <Award className="text-yellow-500" size={20} />
-            <span className="text-lg font-bold">
-              {courses.filter(c => c.certificate_status === 'Earned').length} / {courses.length}
-            </span>
-          </div >
-          <p className="text-xs text-slate-600 mt-1">Professional Certificates</p>
-        </div >
-      </div >
-
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Trophy size={20} className="text-indigo-400" />
-          Curriculum Tracker
-        </h2>
-        <div className="grid grid-cols-1 gap-4">
-          {courses.length > 0 ? courses.map((course) => (
-            <div key={course.id} className="p-6 bg-slate-900 border border-slate-800 rounded-2xl hover:border-indigo-500/50 transition-all group shadow-sm">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs px-2 py-0.5 bg-indigo-500/10 text-indigo-400 rounded-lg font-bold uppercase tracking-tighter">
-                      {course.status || 'Planned'}
-                    </span>
-                    <h3 className="text-lg font-bold group-hover:text-indigo-300 transition-colors">{course.course_name}</h3>
-                  </div >
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-                    <div className="flex items-center gap-1">
-                      <Calendar size={14} />
-                      {course.start_date} $\rightarrow$ {course.end_date}
-                    </div >
-                    <div className="flex items-center gap-1">
-                      <CheckCircle2 size={14} />
-                      Grade: {course.grade || 'TBA'}
-                    </div >
-                    <div className="flex items-center gap-1">
-                      <Award size={14} />
-                      Cert: {course.certificate_status || 'Pending'}
-                    </div >
-                  </div >
+      <div className="grid grid-cols-1 gap-4">
+        {COURSES.map(course => (
+          <div key={course.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all hover:border-indigo-300">
+            <div className="p-5 flex items-center justify-between cursor-pointer" onClick={() => setExpandedCourse(expandedCourse === course.id ? null : course.id)}>
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "p-2 rounded-lg",
+                  progress[course.id] === 'Completed' ? "bg-emerald-50 text-emerald-600" : "bg-indigo-50 text-indigo-600"
+                )}>
+                  {course.type === 'Exam' ? <GraduationCap size={20} /> : <BookOpen size={20} />}
                 </div >
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500 font-medium mb-1">Course Progress</p>
-                    <p className="text-xl font-black text-indigo-400">{course.progress_percent || 0}%</p>
-                  </div >
-                  <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 transition-all" style={{ width: `${course.progress_percent || 0}%` }} />
-                  </div >
-                  <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                    <ChevronRight size={20} className="text-slate-400" />
-                  </button>
+                <div>
+                  <h3 className="font-bold text-slate-900">{course.name}</h3>
+                  <p className="text-xs text-slate-500">{course.type}</p>
                 </div >
               </div >
+              <div className="flex items-center gap-4">
+                <select
+                  value={progress[course.id] || 'Enrolled'}
+                  onChange={(e) => updateStatus(course.id, e.target.value)}
+                  className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="Enrolled">Enrolled</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+                {expandedCourse === course.id ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+              </div >
             </div >
-          )) : (
-            <div className="p-12 text-center text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl">
-              No courses found. Add your MITx MicroMasters courses to start tracking.
-            </div >
-          )}
-        </div >
+            {expandedCourse === course.id && (
+              <div className="p-5 bg-slate-50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 size={16} className={progress[course.id] === 'Completed' ? "text-emerald-500" : "text-slate-300"} />
+                      <span className="text-sm text-slate-600">Core Modules Completion</span>
+                    </div >
+                    <span className="text-xs font-bold text-indigo-600">{progress[course.id] === 'Completed' ? 'Done' : 'Pending'}</span>
+                  </div >
+                  <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <Clock size={16} className="text-slate-400" />
+                      <span className="text-sm text-slate-600">Exam Preparation Phase</span>
+                    </div >
+                    <span className="text-xs font-bold text-indigo-600">{progress[course.id] === 'Completed' ? 'Completed' : 'In Progress'}</span>
+                  </div >
+                </div >
+              </div >
+            )}
+          </div >
+        ))}
       </div >
     </div >
   );

@@ -148,7 +148,7 @@ export default function MBAApplications() {
           <p className="text-slate-400">Manage your path to a deferred MBA program</p>
         </div >
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium text-white hover:bg-slate-800 transition-colors">
             <Trophy size={16} />
             Test Scores
           </button>

@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Map,
   Target,
-  Code,
   GraduationCap,
   Microscope,
-  Briefcase,
   BookOpen,
   TrendingUp,
   Menu,
@@ -15,45 +13,46 @@ import {
   ChevronRight,
   Moon,
   Sun,
-  User
+  User,
+  Terminal
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import CommandCenter from './pages/CommandCenter';
 import MasterRoadmap from './pages/MasterRoadmap';
 import GoalSystem from './pages/GoalSystem';
-import TechnicalSkills from './pages/TechnicalSkills';
-import MBAApplications from './pages/MBAApplications';
 import HonorsResearch from './pages/HonorsResearch';
 import MITxTracker from './pages/MITxTracker';
-import CareerTracker from './pages/CareerTracker';
-import Analytics from './pages/Analytics';
-import LeadershipEntrepreneurship from './pages/LeadershipEntrepreneurship';
+import PythonLearningPath from './pages/PythonLearningPath';
 
 const navItems = [
   { id: 'command-center', label: 'Command Center', icon: LayoutDashboard, component: CommandCenter },
   { id: 'master-roadmap', label: 'Master Roadmap', icon: Map, component: MasterRoadmap },
-  { id: 'goals', label: 'Goals & Milestones', icon: Target, component: GoalSystem },
-  { id: 'skills', label: 'Technical Skills', icon: Code, component: TechnicalSkills },
-  { id: 'mba', label: 'MBA Applications', icon: GraduationCap, component: MBAApplications },
+  { id: 'achievements', label: 'Achievements', icon: Target, component: GoalSystem },
   { id: 'research', label: 'Honors Research', icon: Microscope, component: HonorsResearch },
-  { id: 'career', label: 'Career & Recruiting', icon: Briefcase, component: CareerTracker },
   { id: 'mitx', label: 'MITx MicroMasters', icon: BookOpen, component: MITxTracker },
-  { id: 'leadership', label: 'Leadership & Entre.', icon: TrendingUp, component: LeadershipEntrepreneurship },
-  { id: 'analytics', label: 'Analytics & Reflections', icon: TrendingUp, component: Analytics },
+  { id: 'python', label: 'Python Learning Path', icon: Terminal, component: PythonLearningPath },
 ];
 
 export default function App() {
   const [activePageId, setActivePageId] = useState('command-center');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
+
+  useEffect(() => {
+    // Ensure HTML class matches state on mount
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-    document.documentElement.classList.toggle('dark');
   };
 
-  const activePage = navItems.find(item => item.id === activePageId)!;
+  const activePage = navItems.find(item => item.id === activePageId) || navItems[0];
   const PageComponent = activePage.component;
 
   return (
@@ -68,7 +67,10 @@ export default function App() {
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         <div className="flex flex-col h-full">
-          <div className="h-16 flex items-center px-6 border-b border-slate-800/50">
+          <div className={cn(
+            "h-16 flex items-center px-6 border-b",
+            theme === 'dark' ? "border-slate-800/50" : "border-slate-200"
+          )}>
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="p-2 bg-indigo-600 rounded-lg text-white">
                 <TrendingUp size={20} />
@@ -81,12 +83,13 @@ export default function App() {
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
                   setActivePageId(item.id);
                   setIsMobileMenuOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all group",
+                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all group relative",
                   activePageId === item.id
                     ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
                     : theme === 'dark' ? "text-slate-400 hover:bg-slate-800 hover:text-slate-200" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -95,7 +98,10 @@ export default function App() {
                 <item.icon size={20} className="shrink-0" />
                 {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
                 {isCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                  <div className={cn(
+                    "absolute left-full ml-2 px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50",
+                    theme === 'dark' ? "bg-slate-800 text-white" : "bg-slate-200 text-slate-900"
+                  )}>
                     {item.label}
                   </div >
                 )}
@@ -103,16 +109,28 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="p-4 border-t border-slate-800/50 space-y-2">
-            <button onClick={toggleTheme} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/50 transition-colors">
+          <div className={cn(
+            "p-4 border-t space-y-2",
+            theme === 'dark' ? "border-slate-800/50" : "border-slate-200"
+          )}>
+            <button onClick={toggleTheme} className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+              theme === 'dark' ? "hover:bg-slate-800/50" : "hover:bg-slate-100"
+            )}>
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
               {!isCollapsed && <span className="text-sm">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
             </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/50 transition-colors">
+            <button className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+              theme === 'dark' ? "hover:bg-slate-800/50" : "hover:bg-slate-100"
+            )}>
               <User size={20} />
               {!isCollapsed && <span className="text-sm">My Profile</span>}
             </button>
-            <button onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex w-full items-center justify-center p-2 rounded-lg hover:bg-slate-800/50 transition-colors">
+            <button onClick={() => setIsCollapsed(!isCollapsed)} className={cn(
+              "hidden lg:flex w-full items-center justify-center p-2 rounded-lg transition-colors",
+              theme === 'dark' ? "hover:bg-slate-800/50" : "hover:bg-slate-100"
+            )}>
               {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
             </button>
           </div >
@@ -127,7 +145,10 @@ export default function App() {
           "h-16 sticky top-0 z-40 flex items-center justify-between px-6 border-b backdrop-blur-md",
           theme === 'dark' ? "bg-slate-950/80 border-slate-800" : "bg-slate-50/80 border-slate-200"
         )}>
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-2 hover:bg-slate-800/10 rounded-lg">
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={cn(
+            "lg:hidden p-2 rounded-lg",
+            theme === 'dark' ? "hover:bg-slate-800/10" : "hover:bg-slate-200/50"
+          )}>
             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <div className="flex-1" />
