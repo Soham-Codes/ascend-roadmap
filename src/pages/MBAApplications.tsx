@@ -10,7 +10,8 @@ import {
   Filter,
   MoreVertical,
   FileText,
-  UserCheck
+  UserCheck,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabaseClient';
@@ -25,6 +26,8 @@ export default function MBAApplications() {
   const [searchQuery, setSearchQuery] = useState('');
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newSchool, setNewSchool] = useState('');
 
   useEffect(() => {
     async function fetchApplications() {
@@ -44,7 +47,6 @@ export default function MBAApplications() {
 
         if (error) throw error;
 
-        // Flatten the joined data for easier use in the UI
         const flattened = (data || []).map(app => ({
           id: app.id,
           university: app.mba_programs?.university || 'TBA',
@@ -65,6 +67,62 @@ export default function MBAApplications() {
 
     fetchApplications();
   }, []);
+
+  const handleAddSchool = async () => {
+    if (!newSchool.trim()) return;
+
+    try {
+      // 1. Create the program
+      const { data: progData, error: progError } = await supabase
+        .from('mba_programs')
+        .insert([
+          {
+            university: newSchool,
+            business_school: `${newSchool} Business School`,
+            program_name: 'Deferred MBA'
+          }
+        ])
+        .select()
+        .single();
+
+      if (progError) throw progError;
+
+      // 2. Create the application
+      const { error: appError } = await supabase.from('mba_applications').insert([
+        {
+          program_id: progData.id,
+          status: 'Researching',
+          priority: 'Important',
+          interest_level: 3,
+        }
+      ]);
+
+      if (appError) throw appError;
+
+      setNewSchool('');
+      setIsAdding(false);
+
+      // Refresh
+      const { data: updated } = await supabase
+        .from('mba_applications')
+        .select(`*, mba_programs(*)`);
+
+      const flattened = (updated || []).map(app => ({
+        id: app.id,
+        university: app.mba_programs?.university || 'TBA',
+        business_school: app.mba_programs?.business_school || 'TBA',
+        program_name: app.mba_programs?.program_name || 'TBA',
+        priority: app.priority || 'Optional',
+        status: app.status || 'Researching',
+        fit: app.interest_level || 0,
+      }));
+      setApplications(flattened);
+
+    } catch (error) {
+      console.error('Error adding school:', error);
+      alert('Failed to add school.');
+    }
+  };
 
   const filteredSchools = applications.filter(s =>
     s.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -94,12 +152,41 @@ export default function MBAApplications() {
             <Trophy size={16} />
             Test Scores
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors">
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors"
+          >
             <Plus size={16} />
             Add School
           </button>
         </div >
       </div >
+
+      {isAdding && (
+        <div className="flex gap-2 p-4 bg-slate-900 border border-indigo-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+          <input
+            autoFocus
+            type="text"
+            value={newSchool}
+            onChange={(e) => setNewSchool(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddSchool()}
+            placeholder="Enter University name (e.g. Stanford University)..."
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            onClick={handleAddSchool}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all"
+          >
+            Add
+          </button>
+          <button
+            onClick={() => setIsAdding(false)}
+            className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-600 transition-all"
+          >
+            Cancel
+          </button>
+        </div >
+      )}
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl">
         <div className="relative w-full md:w-96">
@@ -203,7 +290,7 @@ export default function MBAApplications() {
                       <span className="text-sm font-bold group-hover:text-indigo-300 transition-colors">{school.business_school}</span>
                       <span className="text-xs text-slate-500">{school.program_name}</span>
                     </div >
-                  </td>
+                  </td >
                   <td className="px-6 py-4">
                     <span className="text-xs px-2 py-1 bg-slate-800 rounded-lg text-slate-300 border border-slate-700">
                       {school.status}

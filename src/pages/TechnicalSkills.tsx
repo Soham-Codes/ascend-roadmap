@@ -10,7 +10,8 @@ import {
   Clock,
   ChevronRight,
   Star,
-  Target
+  Target,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabaseClient';
@@ -20,6 +21,15 @@ export default function TechnicalSkills() {
   const [skills, setSkills] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Quick Add States
+  const [isAddingSkill, setIsAddingSkill] = useState(false);
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillProf, setNewSkillProf] = useState(1);
+
+  const [isAddingProject, setIsAddingProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectDesc, setNewProjectDesc] = useState('');
 
   useEffect(() => {
     async function fetchData() {
@@ -37,6 +47,42 @@ export default function TechnicalSkills() {
     }
     fetchData();
   }, []);
+
+  const handleAddSkill = async () => {
+    if (!newSkillName.trim()) return;
+    try {
+      const { error } = await supabase.from('technical_skills').insert([
+        { name: newSkillName, proficiency: newSkillProf, status: 'In Progress' }
+      ]);
+      if (error) throw error;
+      setNewSkillName('');
+      setNewSkillProf(1);
+      setIsAddingSkill(false);
+      const { data: sData } = await supabase.from('technical_skills').select('*');
+      if (sData) setSkills(sData);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to add skill');
+    }
+  };
+
+  const handleAddProject = async () => {
+    if (!newProjectName.trim()) return;
+    try {
+      const { error } = await supabase.from('coding_projects').insert([
+        { name: newProjectName, description: newProjectDesc, progress_percent: 0, status: 'In Progress' }
+      ]);
+      if (error) throw error;
+      setNewProjectName('');
+      setNewProjectDesc('');
+      setIsAddingProject(false);
+      const { data: pData } = await supabase.from('coding_projects').select('*');
+      if (pData) setProjects(pData);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to add project');
+    }
+  };
 
   if (loading) {
     return (
@@ -57,7 +103,10 @@ export default function TechnicalSkills() {
           <p className="text-slate-400">Independent learning and engineering proficiency</p>
         </div >
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors">
+          <button
+            onClick={() => setActiveTab('skills') && setIsAddingSkill(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors"
+          >
             <Plus size={16} />
             Add Skill
           </button>
@@ -87,50 +136,77 @@ export default function TechnicalSkills() {
 
       {activeTab === 'skills' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {skills.length > 0 ? skills.map((skill, idx) => (
-              <div key={idx} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:border-indigo-500/50 transition-all group cursor-pointer">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="space-y-1">
-                    <p className="font-bold text-sm group-hover:text-indigo-300 transition-colors">{skill.name}</p>
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "text-[10px] px-2 py-0.5 rounded-full font-medium",
-                        skill.status === 'Completed' ? "bg-emerald-500/10 text-emerald-400" :
-                        skill.status === 'In Progress' ? "bg-indigo-500/10 text-indigo-400" : "bg-slate-700 text-slate-400"
-                      )}>{skill.status}</span>
-                      <span className="text-[10px] text-slate-500">{skill.practice_hours || 0} hours invested</span>
-                    </div >
-                  </div >
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={12}
-                        className={cn(
-                          "transition-colors",
-                          i < (skill.proficiency || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-700"
-                        )}
-                      />
-                    ))}
-                  </div >
+          <div className="lg:col-span-2 space-y-6">
+            {isAddingSkill && (
+              <div className="p-4 bg-slate-900 border border-indigo-500/30 rounded-2xl flex flex-col md:flex-row gap-4 animate-in fade-in slide-in-from-top-2">
+                <input
+                  autoFocus
+                  type="text"
+                  value={newSkillName}
+                  onChange={(e) => setNewSkillName(e.target.value)}
+                  placeholder="Skill name (e.g. PyTorch)"
+                  className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Level:</span>
+                  <select
+                    value={newSkillProf}
+                    onChange={(e) => setNewSkillProf(parseInt(e.target.value))}
+                    className="bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm outline-none"
+                  >
+                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
                 </div >
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-800">
-                  <div className="flex items-center gap-2 text-slate-500">
-                    <BookOpen size={12} />
-                    <span className="text-[10px]">{skill.learning_resources ? JSON.stringify(skill.learning_resources) : 'No resources linked'}</span>
-                  </div >
-                  <button className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-600 hover:text-indigo-400">
-                    <ChevronRight size={14} />
-                  </button>
-                </div >
-              </div >
-            )) : (
-              <div className="col-span-2 p-12 text-center text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl">
-                No skills tracked yet. Start adding your technical proficiency!
+                <button onClick={handleAddSkill} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all">Add</button>
+                <button onClick={() => setIsAddingSkill(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-600 transition-all">Cancel</button>
               </div >
             )}
-          </div >
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {skills.length > 0 ? skills.map((skill, idx) => (
+                <div key={idx} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:border-indigo-500/50 transition-all group cursor-pointer">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="space-y-1">
+                      <p className="font-bold text-sm group-hover:text-indigo-300 transition-colors">{skill.name}</p>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-[10px] px-2 py-0.5 rounded-full font-medium",
+                          skill.status === 'Completed' ? "bg-emerald-500/10 text-emerald-400" :
+                          skill.status === 'In Progress' ? "bg-indigo-500/10 text-indigo-400" : "bg-slate-700 text-slate-400"
+                        )}>{skill.status}</span>
+                        <span className="text-[10px] text-slate-500">{skill.practice_hours || 0} hours invested</span>
+                      </div >
+                    </div >
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          size={12}
+                          className={cn(
+                            "transition-colors",
+                            i < (skill.proficiency || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-700"
+                          )}
+                        />
+                      ))}
+                    </div >
+                  </div >
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-800">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <BookOpen size={12} />
+                      <span className="text-[10px] truncate max-w-[150px]">{skill.learning_resources ? JSON.stringify(skill.learning_resources) : 'No resources linked'}</span>
+                    </div >
+                    <button className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-600 hover:text-indigo-400">
+                      <ChevronRight size={14} />
+                    </button>
+                  </div >
+                </div >
+              )) : (
+                <div className="col-span-2 p-12 text-center text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl">
+                  No skills tracked yet. Start adding your technical proficiency!
+                </div >
+              )}
+            </div>
+          </div>
 
           <div className="space-y-6">
             <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
@@ -167,6 +243,28 @@ export default function TechnicalSkills() {
         </div >
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {isAddingProject && (
+            <div className="col-span-2 p-4 bg-slate-900 border border-indigo-500/30 rounded-2xl flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
+              <div className="flex gap-4">
+                <input
+                  autoFocus
+                  type="text"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Project Name"
+                  className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button onClick={handleAddProject} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all">Add</button>
+                <button onClick={() => setIsAddingProject(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-600 transition-all">Cancel</button>
+              </div >
+              <textarea
+                value={newProjectDesc}
+                onChange={(e) => setNewProjectDesc(e.target.value)}
+                placeholder="What is this project about?"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none h-20"
+              />
+            </div >
+          )}
           {projects.length > 0 ? projects.map((project, idx) => (
             <div key={idx} className="p-6 bg-slate-900 border border-slate-800 rounded-2xl hover:border-indigo-500/50 transition-all group shadow-xl">
               <div className="flex justify-between items-start mb-4">
@@ -220,7 +318,10 @@ export default function TechnicalSkills() {
               No projects tracked yet. Time to start building!
             </div >
           )}
-          <button className="p-6 border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3 text-slate-600 hover:text-indigo-400 hover:border-indigo-500/50 transition-all group">
+          <button
+            onClick={() => setActiveTab('projects') && setIsAddingProject(true)}
+            className="p-6 border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3 text-slate-600 hover:text-indigo-400 hover:border-indigo-500/50 transition-all group"
+          >
             <div className="p-3 bg-slate-800 rounded-full group-hover:bg-indigo-500/10 transition-colors">
               <Plus size={24} />
             </div >

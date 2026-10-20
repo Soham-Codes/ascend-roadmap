@@ -10,7 +10,8 @@ import {
   Trophy,
   ChevronRight,
   Target,
-  BookOpen
+  BookOpen,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabaseClient';
@@ -27,17 +28,17 @@ export default function CommandCenter() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [overallProgress, setOverallProgress] = useState(0);
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
 
-        // Fetch Workstreams
         const { data: wsData } = await supabase.from('workstreams').select('*');
         if (wsData) setWorkstreams(wsData);
 
-        // Fetch Strategic Goals
         const { data: goalData } = await supabase.from('strategic_goals').select('*');
         if (goalData) {
           setGoals(goalData);
@@ -45,7 +46,6 @@ export default function CommandCenter() {
           setOverallProgress(Math.round(total / (goalData.length || 1)));
         }
 
-        // Fetch most urgent tasks (limited to 3)
         const { data: taskData } = await supabase
           .from('tasks')
           .select('*, milestones(title)')
@@ -62,6 +62,49 @@ export default function CommandCenter() {
 
     fetchData();
   }, []);
+
+  const handleAddTask = async () => {
+    if (!newTaskTitle.trim()) return;
+
+    try {
+      const { data: milestone } = await supabase
+        .from('milestones')
+        .select('id')
+        .limit(1)
+        .single();
+
+      if (!milestone) {
+        alert('Please create a milestone first in the Goals page!');
+        return;
+      }
+
+      const { error } = await supabase.from('tasks').insert([
+        {
+          milestone_id: milestone.id,
+          title: newTaskTitle,
+          status: 'Not Started',
+          priority: 'Important',
+          due_date: new Date().toISOString().split('T')[0],
+        },
+      ]);
+
+      if (error) throw error;
+
+      setNewTaskTitle('');
+      setIsAddingTask(false);
+
+      const { data: updatedTasks } = await supabase
+        .from('tasks')
+        .select('*, milestones(title)')
+        .order('due_date', { ascending: true })
+        .limit(3);
+      if (updatedTasks) setTasks(updatedTasks);
+
+    } catch (error) {
+      console.error('Error adding task:', error);
+      alert('Failed to add task. Check console.');
+    }
+  };
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -146,33 +189,60 @@ export default function CommandCenter() {
               </h2>
               <button className="text-xs text-indigo-400 hover:underline">View all tasks</button>
             </div >
-            <div className="space-y-3">
-              {tasks.length > 0 ? tasks.map((task, idx) => (
-                <div key={idx} className="group flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:border-indigo-500/50 transition-all cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="h-5 w-5 rounded-full border-2 border-slate-700 group-hover:border-indigo-500 transition-colors" />
-                    <div>
-                      <p className="text-sm font-semibold group-hover:text-indigo-300 transition-colors">{task.title}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400 font-medium">{task.priority}</span>
-                        <span className="text-[10px] text-slate-600 flex items-center gap-1">
-                          <Clock size={10} /> {task.due_date}
-                        </span>
+
+            {isAddingTask ? (
+              <div className="flex gap-2 p-4 bg-slate-800/50 border border-indigo-500/30 rounded-2xl animate-in fade-in zoom-in-95 duration-200">
+                <input
+                  autoFocus
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+                  placeholder="What needs to be done?"
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  onClick={handleAddTask}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => setIsAddingTask(false)}
+                  className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-600 transition-all"
+                >
+                  Cancel
+                </button>
+              </div >
+            ) : (
+              <div className="space-y-3">
+                {tasks.length > 0 ? tasks.map((task, idx) => (
+                  <div key={idx} className="group flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:border-indigo-500/50 transition-all cursor-pointer">
+                    <div className="flex items-center gap-4">
+                      <div className="h-5 w-5 rounded-full border-2 border-slate-700 group-hover:border-indigo-500 transition-colors" />
+                      <div>
+                        <p className="text-sm font-semibold group-hover:text-indigo-300 transition-colors">{task.title}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400 font-medium">{task.priority}</span>
+                          <span className="text-[10px] text-slate-600 flex items-center gap-1">
+                            <Clock size={10} /> {task.due_date}
+                          </span>
+                        </div >
                       </div >
                     </div >
+                    <div className="text-right">
+                      <span className="text-[10px] px-2 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20 font-medium">
+                        {task.status}
+                      </span>
+                    </div >
                   </div >
-                  <div className="text-right">
-                    <span className="text-[10px] px-2 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20 font-medium">
-                      {task.status}
-                    </span>
+                )) : (
+                  <div className="p-8 text-center text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl">
+                    No immediate tasks. Time to plan your week!
                   </div >
-                </div >
-              )) : (
-                <div className="p-8 text-center text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl">
-                  No immediate tasks. Time to plan your week!
-                </div >
-              )}
-            </div >
+                )}
+              </div >
+            )}
           </div >
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -198,12 +268,16 @@ export default function CommandCenter() {
             <h2 className="text-lg font-bold mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 gap-2">
               {[
-                { label: 'New Task', icon: Plus },
+                { label: 'New Task', icon: Plus, action: () => setIsAddingTask(true) },
                 { label: 'Log Achievement', icon: Trophy },
                 { label: 'Plan Week', icon: CalendarDays },
                 { label: 'Add Reflection', icon: BookOpen },
               ].map((action) => (
-                <button key={action.label} className="flex items-center justify-between p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all text-sm font-medium group">
+                <button
+                  key={action.label}
+                  onClick={action.action}
+                  className="flex items-center justify-between p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all text-sm font-medium group"
+                >
                   <div className="flex items-center gap-3">
                     <action.icon size={16} />
                     {action.label}

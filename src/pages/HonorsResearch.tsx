@@ -9,7 +9,8 @@ import {
   Clock,
   ArrowRight,
   Trophy,
-  Target
+  Target,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabaseClient';
@@ -17,6 +18,8 @@ import { supabase } from '../lib/supabaseClient';
 export default function HonorsResearch() {
   const [research, setResearch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isAddingTopic, setIsAddingTopic] = useState(false);
+  const [newTopic, setNewTopic] = useState('');
 
   useEffect(() => {
     async function fetchResearch() {
@@ -35,6 +38,23 @@ export default function HonorsResearch() {
     }
     fetchResearch();
   }, []);
+
+  const handleAddTopic = async () => {
+    if (!newTopic.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('research_entries')
+        .upsert({ topic: newTopic });
+      if (error) throw error;
+      setNewTopic('');
+      setIsAddingTopic(false);
+      const { data } = await supabase.from('research_entries').select('*').single();
+      if (data) setResearch(data);
+    } catch (error) {
+      console.error('Error updating topic:', error);
+      alert('Failed to update research topic.');
+    }
+  };
 
   if (loading) {
     return (
@@ -55,12 +75,31 @@ export default function HonorsResearch() {
           <p className="text-slate-400">Exploratory AI research for Supply Chain & Operational Systems</p>
         </div >
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors">
+          <button
+            onClick={() => setIsAddingTopic(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors"
+          >
             <Plus size={16} />
-            New Entry
+            Update Topic
           </button>
         </div >
       </div >
+
+      {isAddingTopic && (
+        <div className="flex gap-2 p-4 bg-slate-900 border border-indigo-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+          <input
+            autoFocus
+            type="text"
+            value={newTopic}
+            onChange={(e) => setNewTopic(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddTopic()}
+            placeholder="Enter new research focus..."
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button onClick={handleAddTopic} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all">Update</button>
+          <button onClick={() => setIsAddingTopic(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-600 transition-all">Cancel</button>
+        </div >
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">

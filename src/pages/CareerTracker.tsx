@@ -13,7 +13,8 @@ import {
   Star,
   Target,
   FileText,
-  TrendingUp
+  TrendingUp,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabaseClient';
@@ -21,23 +22,73 @@ import { supabase } from '../lib/supabaseClient';
 export default function CareerTracker() {
   const [filter, setFilter] = useState('All');
   const [applications, setApplications] = useState<any[]>([]);
+  const [achievements, setAchievements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newCompany, setNewCompany] = useState('');
+  const [newRole, setNewRole] = useState('');
+
+  const [isAddingAch, setIsAddingAch] = useState(false);
+  const [newAch, setNewAch] = useState('');
 
   useEffect(() => {
-    async function fetchApplications() {
+    async function fetchData() {
       try {
         setLoading(true);
-        const { data, error } = await supabase.from('career_applications').select('*');
-        if (error) throw error;
-        setApplications(data || []);
+        const [appRes, achRes] = await Promise.all([
+          supabase.from('career_applications').select('*'),
+          supabase.from('career_achievements').select('*')
+        ]);
+        if (appRes.data) setApplications(appRes.data);
+        if (achRes.data) setAchievements(achRes.data);
       } catch (error) {
-        console,error('Error fetching career applications:', error);
+        console.error('Error fetching career data:', error);
       } finally {
         setLoading(false);
       }
     }
-    fetchApplications();
+    fetchData();
   }, []);
+
+  const handleAddApplication = async () => {
+    if (!newCompany.trim() || !newRole.trim()) return;
+    try {
+      const { error } = await supabase.from('career_applications').insert([
+        {
+          company: newCompany,
+          role: newRole,
+          status: 'Interested',
+          application_date: new Date().toISOString().split('T')[0]
+        }
+      ]);
+      if (error) throw error;
+      setNewCompany('');
+      setNewRole('');
+      setIsAdding(false);
+      const { data } = await supabase.from('career_applications').select('*');
+      if (data) setApplications(data);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to add application');
+    }
+  };
+
+  const handleAddAchievement = async () => {
+    if (!newAch.trim()) return;
+    try {
+      const { error } = await supabase.from('career_achievements').insert([
+        { achievement: newAch, date: new Date().toISOString().split('T')[0] }
+      ]);
+      if (error) throw error;
+      setNewAch('');
+      setIsAddingAch(false);
+      const { data } = await supabase.from('career_achievements').select('*');
+      if (data) setAchievements(data);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to add achievement');
+    }
+  };
 
   const filteredApps = applications.filter(app => {
     if (filter === 'All') return true;
@@ -66,12 +117,39 @@ export default function CareerTracker() {
           <p className="text-slate-400">Tracking internships and full-time opportunities</p>
         </div >
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors">
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors"
+          >
             <Plus size={16} />
             Add Application
           </button>
         </div >
       </div >
+
+      {isAdding && (
+        <div className="flex flex-col md:flex-row gap-4 p-4 bg-slate-900 border border-indigo-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+          <input
+            autoFocus
+            type="text"
+            value={newCompany}
+            onChange={(e) => setNewCompany(e.target.value)}
+            placeholder="Company Name"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <input
+            type="text"
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value)}
+            placeholder="Role (e.g. AI Engineer)"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <div className="flex gap-2">
+            <button onClick={handleAddApplication} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all">Add</button>
+            <button onClick={() => setIsAdding(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-600 transition-all">Cancel</button>
+          </div >
+        </div >
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -124,7 +202,7 @@ export default function CareerTracker() {
                     <span className="text-sm font-bold group-hover:text-indigo-300 transition-colors">{app.company}</span>
                     <span className="text-xs text-slate-500">{app.role}</span>
                   </div >
-                </td >
+                </td>
                 <td className="px-6 py-4 text-sm text-slate-400">{app.location}</td>
                 <td className="px-6 py-4">
                   <span className={cn(
@@ -133,14 +211,14 @@ export default function CareerTracker() {
                     app.status === 'Interviewing' ? "bg-indigo-500/10 text-indigo-400" :
                     app.status === 'Rejected' ? "bg-red-500/10 text-red-400" : "bg-slate-800 text-slate-400"
                   )}>{app.status}</span>
-                </td >
+                </td>
                 <td className="px-6 py-4 text-sm text-slate-500">{app.application_date}</td>
                 <td className="px-6 py-4 text-right">
                   <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-500 hover:text-indigo-400 transition-all">
                     <ChevronRight size={16} />
                   </button>
-                </td >
-              </tr >
+                </td>
+              </tr>
             )) : (
               <tr>
                 <td colSpan={5} className="p-12 text-center text-slate-500">
@@ -159,13 +237,45 @@ export default function CareerTracker() {
             Accomplishments Journal
           </h2>
           <div className="space-y-4">
-            <div className="p-4 bg-slate-800/40 border border-slate-800 rounded-xl">
-              <p className="text-xs text-slate-500 italic">Accomplishments journal will be live once the dedicated table is linked.</p>
+            {isAddingAch && (
+              <div className="flex gap-2 p-4 bg-slate-800/50 border border-indigo-500/30 rounded-2xl animate-in fade-in zoom-in-95 duration-200">
+                <input
+                  autoFocus
+                  type="text"
+                  value={newAch}
+                  onChange={(e) => setNewAch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddAchievement()}
+                  placeholder="What did you achieve today?"
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button onClick={handleAddAchievement} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all">Add</button>
+                <button onClick={() => setIsAddingAch(false)} className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-600 transition-all">Cancel</button>
+              </div >
+            )}
+            <div className="space-y-3">
+              {achievements.length > 0 ? achievements.map((ach, i) => (
+                <div key={i} className="p-4 bg-slate-800/30 border border-slate-800 rounded-xl flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 size={16} className="text-emerald-400" />
+                    <p className="text-sm text-slate-300">{ach.achievement}</p>
+                  </div >
+                  <span className="text-[10px] text-slate-500">{ach.date}</span>
+                </div >
+              )) : (
+                <div className="p-4 bg-slate-800/40 border border-slate-800 rounded-xl text-center">
+                  <p className="text-xs text-slate-500 italic">No achievements logged yet. Start celebrating your wins!</p>
+                </div >
+              )}
             </div >
-            <button className="w-full p-4 border-2 border-dashed border-slate-800 rounded-xl text-slate-600 hover:text-indigo-400 hover:border-indigo-500/50 transition-all flex items-center justify-center gap-2 text-sm font-medium">
-              <Plus size={16} />
-              Log New Achievement
-            </button>
+            {!isAddingAch && (
+              <button
+                onClick={() => setIsAddingAch(true)}
+                className="w-full p-4 border-2 border-dashed border-slate-800 rounded-xl text-slate-600 hover:text-indigo-400 hover:border-indigo-500/50 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+              >
+                <Plus size={16} />
+                Log New Achievement
+              </button>
+            )}
           </div >
         </div >
 
