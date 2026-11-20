@@ -97,7 +97,7 @@ export default function MITxTracker() {
       <div className="grid grid-cols-1 gap-4">
         {COURSES.map(course => (
           <div key={course.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all hover:border-indigo-300">
-            <div className="p-5 flex items-center justify-between cursor-pointer" onClick={() => setExpandedCourse(expandedCourse === course.id ? null : course.id)}>
+            <div className="p-5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-4">
                 <div className={cn(
                   "p-2 rounded-lg",
@@ -112,6 +112,7 @@ export default function MITxTracker() {
               </div >
               <div className="flex items-center gap-4">
                 <select
+                  aria-label={`Status for ${course.name}`}
                   value={progress[course.id] || 'Enrolled'}
                   onChange={(e) => updateStatus(course.id, e.target.value)}
                   className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
@@ -120,11 +121,20 @@ export default function MITxTracker() {
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
                 </select>
-                {expandedCourse === course.id ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                <button
+                  type="button"
+                  aria-label={`Details for ${course.name}`}
+                  aria-expanded={expandedCourse === course.id}
+                  aria-controls={expandedCourse === course.id ? `course-details-${course.id}` : undefined}
+                  onClick={() => setExpandedCourse(current => current === course.id ? null : course.id)}
+                  className="rounded-md p-2 text-slate-500 hover:bg-slate-100"
+                >
+                  {expandedCourse === course.id ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
+                </button>
               </div >
             </div >
             {expandedCourse === course.id && (
-              <div className="p-5 bg-slate-50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
+              <div id={`course-details-${course.id}`} className="p-5 bg-slate-50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
                     <div className="flex items-center gap-3">

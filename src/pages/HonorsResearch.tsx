@@ -3,25 +3,35 @@ import {
   Microscope,
   Plus,
   UserSearch,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  X,
+  Pencil,
   Trash2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabaseClient';
 
+const outreachStatuses = ['Reached out', 'In progress', 'Accepted', 'Rejected'];
+const emptyProfessor = { name: '', research: '', department: '', status: outreachStatuses[0] };
+
+interface Professor {
+  id: string;
+  professor_name: string | null;
+  topic: string | null;
+  department: string | null;
+  status: string | null;
+}
+
+function statusOptions(status: string) {
+  const options = outreachStatuses.includes(status) ? outreachStatuses : [status, ...outreachStatuses];
+  return options.map(option => <option key={option} value={option}>{option}</option>);
+}
+
 export default function HonorsResearch() {
-  const [professors, setProfessors] = useState<any[]>([]);
+  const [professors, setProfessors] = useState<Professor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdding, setIsAdding] = useState(false);
-  const [newProf, setNewProf] = useState({
-    name: '',
-    research: '',
-    department: '',
-    status: 'Reached out'
-  });
+  const [form, setForm] = useState<{ id: string | null; fields: typeof emptyProfessor } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [pendingProfessorId, setPendingProfessorId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchProfessors() {
@@ -41,47 +51,78 @@ export default function HonorsResearch() {
     fetchProfessors();
   }, []);
 
-  const handleAddProf = async () => {
-    if (!newProf.name.trim()) return;
+  const openForm = (professor?: Professor) => {
+    setSaveError('');
+    setForm(professor ? {
+      id: professor.id,
+      fields: {
+        name: professor.professor_name ?? '',
+        department: professor.department ?? '',
+        research: professor.topic ?? '',
+        status: professor.status ?? emptyProfessor.status
+      }
+    } : { id: null, fields: emptyProfessor });
+  };
+
+  const changeField = (field: keyof typeof emptyProfessor, value: string) => {
+    setForm(current => current && { ...current, fields: { ...current.fields, [field]: value } });
+  };
+
+  const saveProfessor = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!form || !form.fields.name.trim() || saving) return;
+    const { id, fields } = form;
+    const values = {
+      professor_name: fields.name.trim(),
+      department: fields.department.trim(),
+      topic: fields.research.trim(),
+      status: fields.status
+    };
+    setSaving(true);
+    setSaveError('');
     try {
-      const { error } = await supabase.from('research_entries').insert([
-        {
-          topic: newProf.research, // Using topic as research field for compatibility
-          professor_name: newProf.name,
-          department: newProf.department,
-          status: newProf.status
-        }
-      ]);
-      if (error) throw error;
-      setNewProf({ name: '', research: '', department: '', status: 'Reached out' });
-      setIsAdding(false);
-      const { data } = await supabase.from('research_entries').select('*');
-      if (data) setProfessors(data);
-    } catch (e) {
-      console.error(e);
-      alert('Failed to add professor');
+      const table = supabase.from('research_entries');
+      const query = id === null ? table.insert(values) : table.update(values).eq('id', id);
+      const { data, error } = await query.select('id,professor_name,department,topic,status').single();
+      if (error) {
+        setSaveError(error.message);
+        return;
+      }
+      setProfessors(current => id === null ? [...current, data] : current.map(p => p.id === id ? data : p));
+      setForm(null);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Unexpected error.');
+    } finally {
+      setSaving(false);
     }
   };
 
   const updateStatus = async (id: string, status: string) => {
+    setPendingProfessorId(id);
     try {
-      const { error } = await supabase.from('research_entries').update({ status }).eq('id', id);
+      const { data, error } = await supabase.from('research_entries')
+        .update({ status }).eq('id', id).select('status').single();
       if (error) throw error;
-      setProfessors(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+      setProfessors(prev => prev.map(p => p.id === id ? { ...p, status: data.status } : p));
     } catch (e) {
       console.error(e);
       alert('Failed to update status');
+    } finally {
+      setPendingProfessorId(null);
     }
   };
 
   const deleteProf = async (id: string) => {
+    setPendingProfessorId(id);
     try {
-      const { error } = await supabase.from('research_entries').delete().eq('id', id);
+      const { error } = await supabase.from('research_entries').delete().eq('id', id).select('id').single();
       if (error) throw error;
       setProfessors(prev => prev.filter(p => p.id !== id));
     } catch (e) {
       console.error(e);
       alert('Failed to delete professor');
+    } finally {
+      setPendingProfessorId(null);
     }
   };
 
@@ -104,7 +145,8 @@ export default function HonorsResearch() {
           <p className="text-slate-500">Faculty outreach and project alignment</p>
         </div >
         <button
-          onClick={() => setIsAdding(true)}
+          onClick={() => openForm()}
+          disabled={form !== null}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors"
         >
           <Plus size={16} />
@@ -112,49 +154,53 @@ export default function HonorsResearch() {
         </button>
       </div >
 
-      {isAdding && (
-        <div className="p-6 bg-white border border-indigo-200 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {form && (
+        <form onSubmit={saveProfessor} className="p-6 bg-white border border-indigo-200 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+          <h2 className="mb-4 font-bold text-slate-900">{form.id === null ? 'Add Professor' : 'Edit Professor'}</h2>
+          <fieldset disabled={saving} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               autoFocus
+              required
               type="text"
-              value={newProf.name}
-              onChange={(e) => setNewProf({ ...newProf, name: e.target.value })}
+              value={form.fields.name}
+              aria-label="Professor's Name"
+              onChange={event => changeField('name', event.target.value)}
               placeholder="Professor's Name"
               className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <input
               type="text"
-              value={newProf.department}
-              onChange={(e) => setNewProf({ ...newProf, department: e.target.value })}
+              value={form.fields.department}
+              aria-label="Department"
+              onChange={event => changeField('department', event.target.value)}
               placeholder="Department"
               className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <textarea
-              value={newProf.research}
-              onChange={(e) => setNewProf({ ...newProf, research: e.target.value })}
+              value={form.fields.research}
+              aria-label="Research Interests / Proposed Projects"
+              onChange={event => changeField('research', event.target.value)}
               placeholder="Research Interests / Proposed Projects"
               className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 h-24 resize-none"
             />
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Status:</span>
               <select
-                value={newProf.status}
-                onChange={(e) => setNewProf({ ...newProf, status: e.target.value })}
+                value={form.fields.status}
+                aria-label="Outreach status"
+                onChange={event => changeField('status', event.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none"
               >
-                <option value="Reached out">Reached out</option>
-                <option value="In progress">In progress</option>
-                <option value="Accepted">Accepted</option>
-                <option value="Rejected">Rejected</option>
+                {statusOptions(form.fields.status)}
               </select>
             </div >
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setIsAdding(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-all">Cancel</button>
-              <button onClick={handleAddProf} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all">Save Professor</button>
+              <button type="button" onClick={() => setForm(null)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-all">Cancel</button>
+              <button type="submit" disabled={!form.fields.name.trim()} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all disabled:opacity-50">{saving ? 'Saving…' : 'Save Professor'}</button>
             </div >
-          </div >
-        </div >
+          </fieldset>
+          {saveError && <p role="alert" className="mt-3 text-sm text-red-700">Couldn’t save the professor. {saveError}</p>}
+        </form>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -164,9 +210,15 @@ export default function HonorsResearch() {
               <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
                 <UserSearch size={20} />
               </div >
-              <button onClick={() => deleteProf(prof.id)} className="p-1 text-slate-300 hover:text-red-500 transition-colors">
-                <Trash2 size={16} />
-              </button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => openForm(prof)} disabled={form !== null || pendingProfessorId === prof.id} className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50">
+                  <Pencil size={14} aria-hidden="true" />
+                  Edit
+                </button>
+                <button type="button" onClick={() => deleteProf(prof.id)} disabled={form?.id === prof.id || pendingProfessorId !== null} aria-label={`Delete ${prof.professor_name ?? 'professor'}`} className="p-1 text-slate-400 hover:text-red-500 disabled:opacity-50">
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
+              </div>
             </div >
             <h3 className="text-lg font-bold text-slate-900 mb-1">{prof.professor_name || 'Unknown Professor'}</h3>
             <p className="text-xs font-medium text-slate-500 mb-4">{prof.department || 'TBA Department'}</p>
@@ -176,7 +228,9 @@ export default function HonorsResearch() {
             </div >
             <div className="pt-4 border-t border-slate-100">
               <select
-                value={prof.status}
+                value={prof.status ?? emptyProfessor.status}
+                disabled={form?.id === prof.id || pendingProfessorId !== null}
+                aria-label={`Outreach status for ${prof.professor_name ?? 'professor'}`}
                 onChange={(e) => updateStatus(prof.id, e.target.value)}
                 className={cn(
                   "w-full text-xs font-bold px-3 py-2 rounded-lg border transition-all outline-none",
@@ -186,10 +240,7 @@ export default function HonorsResearch() {
                   "bg-slate-50 border-slate-200 text-slate-600"
                 )}
               >
-                <option value="Reached out">Reached out</option>
-                <option value="In progress">In progress</option>
-                <option value="Accepted">Accepted</option>
-                <option value="Rejected">Rejected</option>
+                {statusOptions(prof.status ?? emptyProfessor.status)}
               </select>
             </div >
           </div >

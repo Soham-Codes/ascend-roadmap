@@ -13,7 +13,7 @@ import {
   ChevronRight,
   Moon,
   Sun,
-  User,
+  LogOut,
   Terminal
 } from 'lucide-react';
 import { cn } from './lib/utils';
@@ -33,7 +33,13 @@ const navItems = [
   { id: 'python', label: 'Python Learning Path', icon: Terminal, component: PythonLearningPath },
 ];
 
-export default function App() {
+interface AppProps {
+  onSignOut: () => void;
+  signingOut: boolean;
+  signOutError: string;
+}
+
+export default function App({ onSignOut, signingOut, signOutError }: AppProps) {
   const [activePageId, setActivePageId] = useState('command-center');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -120,13 +126,14 @@ export default function App() {
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
               {!isCollapsed && <span className="text-sm">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
             </button>
-            <button className={cn(
+            <button onClick={onSignOut} disabled={signingOut} aria-label="Sign out" className={cn(
               "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
               theme === 'dark' ? "hover:bg-slate-800/50" : "hover:bg-slate-100"
             )}>
-              <User size={20} />
-              {!isCollapsed && <span className="text-sm">My Profile</span>}
+              <LogOut size={20} />
+              {!isCollapsed && <span className="text-sm">{signingOut ? 'Signing out…' : 'Sign out'}</span>}
             </button>
+            {signOutError && <p role="alert" className="text-xs text-red-600">{signOutError}</p>}
             <button onClick={() => setIsCollapsed(!isCollapsed)} className={cn(
               "hidden lg:flex w-full items-center justify-center p-2 rounded-lg transition-colors",
               theme === 'dark' ? "hover:bg-slate-800/50" : "hover:bg-slate-100"
